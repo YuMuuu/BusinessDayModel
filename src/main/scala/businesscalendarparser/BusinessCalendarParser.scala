@@ -1,7 +1,10 @@
 package businesscalendarparser
 
 import scala.util.parsing.combinator._
+import scala.util.Try
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.ResolverStyle
 
 /**
  * 元の評価規則
@@ -20,7 +23,7 @@ import java.time.LocalDate
 /**
   * 元のEBNFをLL(1)になるように修正した評価規則
   * この規則だと"(" "T" cast_op cal ")" は評価できない。ex: "(2020/12/26^jp)"
-  * jp & us -> jp&us,  jp | us -> jp|us としている。記事の最後の例ではスペースがなかった
+  * またjp & us -> jp&us,  jp | us -> jp|us としている。記事の最後の例ではスペースがなかった
   * binop    ::= '+'
   *            | '-'
   * castop   ::= '_'
@@ -32,9 +35,9 @@ import java.time.LocalDate
   *            | 'jp|us'
   * expr     ::= term cast_op cal [ binop num ]
   * term     ::= "(" expr ")" | "T"
-  */ 
+  */
 
-object AST {
+object Token {
   sealed trait BinOp
   case object Plus extends BinOp
   case object Minus extends BinOp
@@ -60,26 +63,45 @@ object AST {
       maybeBinOp: Option[BinOp],
       maybeInt: Option[Num]
   ) extends Expr {
-    //TODO: ここにメソッドを生やし実際のLocalDateへの変換を行う
+    // TODO: ここにBusinessDayCalendarを評価する関数を実装し実際のLocalDateへの変換を行う
+    // 日本と英国の開場日DBを作るのがとても面倒だけどどうしよう...
   }
   case class Calendar(localDate: LocalDate) extends Expr
   object Calendar {
-    def fromString(y: String, m: String, d: String): Calendar = {
-      Calendar(LocalDate.of(y.toInt, m.toInt, d.toInt))
-    }
+    // MEMO: このメソッド自体はjava.time.format.DateTimeParseExceptionを起こす可能性があるが、前段でcanCreateCalendarInstanceを利用して不正な値が入ってこないようにしている
+    // インスタンスの生成に成功したらfilter通ってmapするcollect的な関数はないのかな？
+    def fromString(date: String): Calendar = Calendar(
+      LocalDate.parse(
+        date,
+        DateTimeFormatter
+          .ofPattern("uuuu/MM/dd")
+          .withResolverStyle(ResolverStyle.STRICT)
+      )
+    )
+
+    def canCreateCalendarInstance(date: String): Boolean = Try(
+      LocalDate.parse(
+        date,
+        DateTimeFormatter
+          .ofPattern("uuuu/MM/dd")
+          .withResolverStyle(ResolverStyle.STRICT)
+      )
+    ).isSuccess
   }
 }
 
-import businesscalendarparser.AST._
+import businesscalendarparser.Token._
 object BusinessCalendarParser extends JavaTokenParsers with RegexParsers {
   private def binop: Parser[BinOp] = ("+" | "-") ^^ {
     case "+" => Plus
     case "-" => Minus
   }
+
   private def castop: Parser[CastOp] = ("_" | "^") ^^ {
     case "_" => UnderBar
     case "^" => Hat
   }
+
   private def cal: Parser[Cal] = ("jp&us" | "jp|us" | "jp" | "us" | "c") ^^ {
     case "jp&us" => JPAndEN
     case "jp|us" => JPOrEn
@@ -87,12 +109,13 @@ object BusinessCalendarParser extends JavaTokenParsers with RegexParsers {
     case "us"    => EN
     case "c"     => Center
   }
-  private def integer = wholeNumber ^^ { str => Num(str.toInt) }
-  private def T: Parser[Calendar] = """[0-9]{4}/[0-9]{2}/[0-9]{2}""".r ^^ {
-    str =>
-      val splitStr: Array[String] = _.split("/")
-      Calendar.fromString(splitStr(0), splitStr(1), splitStr(2))
-  }
+
+  private def integer = wholeNumber ^^ { s => Num(s.toInt) }
+
+  private def T: Parser[Calendar] =
+    """[0-9]{4}/(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])""".r.filter(
+      Calendar.canCreateCalendarInstance
+    ) ^^ Calendar.fromString
 
   private def expr: Parser[BusinessDayCalendar] =
     term ~! castop ~! cal ~! (binop ~! integer).? ^^ {
@@ -106,9 +129,10 @@ object BusinessCalendarParser extends JavaTokenParsers with RegexParsers {
 
   private def term: Parser[Expr] = ("(" ~>! expr <~! ")") | T
 
-  def apply(input: String): Either[String, Any] = parseAll(expr, input) match {
-    case Success(c, n) => Right(c)
-    case Failure(e, _) => Left("FAILURE: " + e.toString)
-    case Error(e, _)   => Left("ERROR: " + e.toString _)
-  }
+  def apply(input: String): Either[String, BusinessDayCalendar] =
+    parseAll(expr, input) match {
+      case Success(c, n) => Right(c)
+      case Failure(e, _) => Left("FAILURE: " + e.toString)
+      case Error(e, _)   => Left("ERROR: " + e.toString)
+    }
 }
