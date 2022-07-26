@@ -62,10 +62,8 @@ object Token {
       cal: Cal,
       maybeBinOp: Option[BinOp],
       maybeInt: Option[Num]
-  ) extends Expr {
-    // TODO: ここにBusinessDayCalendarを評価する関数を実装し実際のLocalDateへの変換を行う
-    // 日本と英国の開場日DBを作るのがとても面倒だけどどうしよう...
-  }
+  ) extends Expr
+  
   case class Calendar(localDate: LocalDate) extends Expr
   object Calendar {
     // MEMO: このメソッド自体はjava.time.format.DateTimeParseExceptionを起こす可能性があるが、前段でcanCreateCalendarInstanceを利用して不正な値が入ってこないようにしている
