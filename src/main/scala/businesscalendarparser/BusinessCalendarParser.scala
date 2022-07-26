@@ -51,7 +51,7 @@ object Token {
   case object EN extends Cal
   case object Center extends Cal
   case object JPAndEN extends Cal
-  case object JPOrEn extends Cal
+  case object JPOrEN extends Cal
 
   case class Num(int: Int)
 
@@ -104,7 +104,7 @@ object BusinessCalendarParser extends JavaTokenParsers with RegexParsers {
 
   private def cal: Parser[Cal] = ("jp&us" | "jp|us" | "jp" | "us" | "c") ^^ {
     case "jp&us" => JPAndEN
-    case "jp|us" => JPOrEn
+    case "jp|us" => JPOrEN
     case "jp"    => JP
     case "us"    => EN
     case "c"     => Center

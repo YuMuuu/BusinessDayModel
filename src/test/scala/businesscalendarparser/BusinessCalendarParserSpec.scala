@@ -29,7 +29,7 @@ class BusinessCalendarParserSpec extends AnyFlatSpec with EitherValues with Matc
   it should "2020/12/26^jp|us" in {
     val bcp= BusinessCalendarParser("2020/12/26^jp|us")
     bcp shouldBe a [Right[_, _]]
-    bcp.right.get shouldBe BusinessDayCalendar(Calendar(LocalDate.of(2020, 12, 26)), Hat, JPOrEn, None, None)
+    bcp.right.get shouldBe BusinessDayCalendar(Calendar(LocalDate.of(2020, 12, 26)), Hat, JPOrEN, None, None)
   }
 
   it should "2020/12/26^jp&us" in {
