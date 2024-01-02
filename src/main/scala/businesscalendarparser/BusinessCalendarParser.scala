@@ -49,7 +49,7 @@ object Token {
   sealed trait Cal
   case object JP extends Cal
   case object EN extends Cal
-  case object Center extends Cal
+  case object Calendar extends Cal
   case object JPAndEN extends Cal
   case object JPOrEN extends Cal
 
@@ -63,12 +63,12 @@ object Token {
       maybeBinOp: Option[BinOp],
       maybeInt: Option[Num]
   ) extends Expr
-  
-  case class Calendar(localDate: LocalDate) extends Expr
-  object Calendar {
+
+  case class Time(localDate: LocalDate) extends Expr
+  object Time {
     // MEMO: このメソッド自体はjava.time.format.DateTimeParseExceptionを起こす可能性があるが、前段でcanCreateCalendarInstanceを利用して不正な値が入ってこないようにしている
     // インスタンスの生成に成功したらfilter通ってmapするcollect的な関数はないのかな？
-    def fromString(date: String): Calendar = Calendar(
+    def fromString(date: String): Time = Time(
       LocalDate.parse(
         date,
         DateTimeFormatter
@@ -105,15 +105,15 @@ object BusinessCalendarParser extends JavaTokenParsers with RegexParsers {
     case "jp|us" => JPOrEN
     case "jp"    => JP
     case "us"    => EN
-    case "c"     => Center
+    case "c"     => Calendar
   }
 
   private def integer = wholeNumber ^^ { s => Num(s.toInt) }
 
-  private def T: Parser[Calendar] =
+  private def T: Parser[Time] =
     """[0-9]{4}/(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])""".r.filter(
-      Calendar.canCreateCalendarInstance
-    ) ^^ Calendar.fromString
+      Time.canCreateCalendarInstance
+    ) ^^ Time.fromString
 
   private def expr: Parser[BusinessDayCalendar] =
     term ~! castop ~! cal ~! (binop ~! integer).? ^^ {
